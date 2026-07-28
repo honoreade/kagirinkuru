@@ -314,5 +314,93 @@ class TestHLSSupport(unittest.TestCase):
 
             browser.close()
 
+
+    def test_repeated_stream_start(self):
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+
+            # Mock Hls.isSupported to return false
+            page.add_init_script('''
+                window.Hls = {
+                    isSupported: () => false
+                };
+            ''')
+
+            # Block ALL external requests
+            def block_external(route):
+                url = route.request.url
+                if "localhost" in url:
+                    route.continue_()
+                else:
+                    route.abort()
+            page.route("**/*", block_external)
+
+            # Navigate to the page
+            page.goto("http://localhost:8000", wait_until="commit")
+
+            # Wait for our scripts to load
+            page.wait_for_selector(".play-overlay", state="attached")
+
+            # Spy on video.play and video.src
+            page.evaluate('''
+                window.playCallCount = 0;
+                window.srcSetCount = 0;
+                window.lastSrc = null;
+
+                window.originalCanPlayType = HTMLVideoElement.prototype.canPlayType;
+                HTMLVideoElement.prototype.canPlayType = function(type) {
+                    if (type === 'application/vnd.apple.mpegurl') {
+                        return 'probably';
+                    }
+                    return window.originalCanPlayType.call(this, type);
+                };
+
+                const video = document.querySelector('video');
+
+                const origSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+                Object.defineProperty(video, 'src', {
+                    set: function(val) {
+                        window.srcSetCount++;
+                        window.lastSrc = val;
+                        origSrcDescriptor.set.call(this, val);
+                    },
+                    get: function() {
+                        return origSrcDescriptor.get.call(this);
+                    }
+                });
+
+                video.play = function() {
+                    window.playCallCount++;
+                    return Promise.resolve();
+                };
+            ''')
+
+            # Click the first overlay (first start - enters else if branch)
+            page.dispatch_event(".play-overlay", "click")
+
+            # Check play count after first click
+            play_call_count_after_first = page.evaluate("window.playCallCount")
+            src_set_count_after_first = page.evaluate("window.srcSetCount")
+
+            # Click again to simulate a repeated start (enters else branch)
+            page.dispatch_event(".play-overlay", "click")
+
+            # Check if play was called again
+            play_call_count = page.evaluate("window.playCallCount")
+            src_set_count = page.evaluate("window.srcSetCount")
+            last_src = page.evaluate("window.lastSrc")
+
+            self.assertEqual(src_set_count_after_first, 1, "video.src should be set once on first click")
+            self.assertEqual(src_set_count, 2, "video.src should be set twice (once for initial load fallback, once for else block)")
+            self.assertEqual(play_call_count - play_call_count_after_first, 1, "video.play() should be called exactly once from the else block")
+            self.assertTrue(last_src.endswith('.m3u8'), f"Source should be set to an HLS URL in else branch, got {last_src}")
+
+            # Restore mocked global to avoid cross-test effects
+            page.evaluate('''() => {
+                HTMLVideoElement.prototype.canPlayType = window.originalCanPlayType;
+            }''')
+            browser.close()
 if __name__ == "__main__":
     unittest.main()
