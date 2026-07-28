@@ -4,6 +4,45 @@ import time
 import unittest
 from playwright.sync_api import sync_playwright
 
+HLS_NOT_SUPPORTED_MOCK = '''
+    window.Hls = {
+        isSupported: () => false
+    };
+'''
+
+HLS_SUPPORTED_MOCK = '''
+    window.hlsInstances = [];
+    window.Hls = class {
+        static isSupported() { return true; }
+        constructor() {
+            this.url = null;
+            this.destroyed = false;
+            window.hlsInstances.push(this);
+        }
+        loadSource(url) { this.url = url; }
+        attachMedia(media) { this.media = media; }
+        on(event, callback) {
+            if (event === 'hlsManifestParsed') {
+                this.manifestParsedCallback = callback;
+            } else if (event === 'hlsError') {
+                this.errorCallback = callback;
+            }
+        }
+        destroy() { this.destroyed = true; }
+    };
+    window.Hls.Events = {
+        MANIFEST_PARSED: 'hlsManifestParsed',
+        ERROR: 'hlsError'
+    };
+'''
+
+def block_external(route):
+    url = route.request.url
+    if "localhost" in url:
+        route.continue_()
+    else:
+        route.abort()
+
 class TestHLSSupport(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -37,19 +76,9 @@ class TestHLSSupport(unittest.TestCase):
             page = context.new_page()
 
             # Mock Hls.isSupported to return false
-            page.add_init_script('''
-                window.Hls = {
-                    isSupported: () => false
-                };
-            ''')
+            page.add_init_script(HLS_NOT_SUPPORTED_MOCK)
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
             page.route("**/*", block_external)
 
             # Navigate to the page
@@ -123,36 +152,9 @@ class TestHLSSupport(unittest.TestCase):
             page = context.new_page()
 
             # Mock Hls.isSupported to return true and mock Hls constructor
-            page.add_init_script('''
-                window.hlsInstances = [];
-                window.Hls = class {
-                    static isSupported() { return true; }
-                    constructor() {
-                        this.url = null;
-                        window.hlsInstances.push(this);
-                    }
-                    loadSource(url) { this.url = url; }
-                    attachMedia(media) { this.media = media; }
-                    on(event, callback) {
-                        if (event === 'hlsManifestParsed') {
-                            this.manifestParsedCallback = callback;
-                        }
-                    }
-                    destroy() {}
-                };
-                window.Hls.Events = {
-                    MANIFEST_PARSED: 'hlsManifestParsed',
-                    ERROR: 'hlsError'
-                };
-            ''')
+            page.add_init_script(HLS_SUPPORTED_MOCK)
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
             page.route("**/*", block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
@@ -186,18 +188,8 @@ class TestHLSSupport(unittest.TestCase):
             page = context.new_page()
 
             # Mock Hls.isSupported to return false to easily control play event
-            page.add_init_script('''
-                window.Hls = {
-                    isSupported: () => false
-                };
-            ''')
+            page.add_init_script(HLS_NOT_SUPPORTED_MOCK)
 
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
             page.route("**/*", block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
@@ -246,39 +238,9 @@ class TestHLSSupport(unittest.TestCase):
             page = context.new_page()
 
             # Mock Hls.isSupported to return true and mock Hls constructor
-            page.add_init_script('''
-                window.hlsInstances = [];
-                window.Hls = class {
-                    static isSupported() { return true; }
-                    constructor() {
-                        this.url = null;
-                        this.destroyed = false;
-                        window.hlsInstances.push(this);
-                    }
-                    loadSource(url) { this.url = url; }
-                    attachMedia(media) { this.media = media; }
-                    on(event, callback) {
-                        if (event === 'hlsManifestParsed') {
-                            this.manifestParsedCallback = callback;
-                        } else if (event === 'hlsError') {
-                            this.errorCallback = callback;
-                        }
-                    }
-                    destroy() { this.destroyed = true; }
-                };
-                window.Hls.Events = {
-                    MANIFEST_PARSED: 'hlsManifestParsed',
-                    ERROR: 'hlsError'
-                };
-            ''')
+            page.add_init_script(HLS_SUPPORTED_MOCK)
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
             page.route("**/*", block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
