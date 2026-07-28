@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 import unittest
+import urllib.request
 from playwright.sync_api import sync_playwright
 
 class TestHLSSupport(unittest.TestCase):
@@ -17,7 +18,6 @@ class TestHLSSupport(unittest.TestCase):
         max_retries = 10
         for i in range(max_retries):
             try:
-                import urllib.request
                 urllib.request.urlopen("http://localhost:8000", timeout=1)
                 break
             except:
