@@ -314,5 +314,77 @@ class TestHLSSupport(unittest.TestCase):
 
             browser.close()
 
+    def test_hls_manifest_parsed(self):
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+
+            # Mock Hls.isSupported to return true and mock Hls constructor
+            page.add_init_script('''
+                window.hlsInstances = [];
+                window.Hls = class {
+                    static isSupported() { return true; }
+                    constructor() {
+                        this.url = null;
+                        window.hlsInstances.push(this);
+                    }
+                    loadSource(url) { this.url = url; }
+                    attachMedia(media) { this.media = media; }
+                    on(event, callback) {
+                        if (event === 'hlsManifestParsed') {
+                            this.manifestParsedCallback = callback;
+                        } else if (event === 'hlsError') {
+                            this.errorCallback = callback;
+                        }
+                    }
+                    destroy() {}
+                };
+                window.Hls.Events = {
+                    MANIFEST_PARSED: 'hlsManifestParsed',
+                    ERROR: 'hlsError'
+                };
+            ''')
+
+            # Block ALL external requests
+            def block_external(route):
+                url = route.request.url
+                if "localhost" in url:
+                    route.continue_()
+                else:
+                    route.abort()
+            page.route("**/*", block_external)
+
+            page.goto("http://localhost:8000", wait_until="commit")
+            page.wait_for_selector(".play-overlay", state="attached")
+
+            # Mock video.play
+            page.evaluate('''
+                window.playCalled = false;
+                const video = document.querySelector('video');
+                video.play = function() {
+                    window.playCalled = true;
+                    return Promise.resolve();
+                };
+            ''')
+
+            # Click the first overlay to start stream
+            page.dispatch_event(".play-overlay", "click")
+
+            # Trigger manifest parsed event
+            play_called = page.evaluate('''
+                () => {
+                    const inst = window.hlsInstances[0];
+                    if (inst && inst.manifestParsedCallback) {
+                        inst.manifestParsedCallback();
+                    }
+                    return window.playCalled;
+                }
+            ''')
+
+            self.assertTrue(play_called, "video.play() should be called when MANIFEST_PARSED event is triggered")
+
+            browser.close()
+
 if __name__ == "__main__":
     unittest.main()
