@@ -314,5 +314,83 @@ class TestHLSSupport(unittest.TestCase):
 
             browser.close()
 
+    def test_hls_non_fatal_error(self):
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+
+            # Mock Hls.isSupported to return true and mock Hls constructor
+            page.add_init_script('''
+                window.hlsInstances = [];
+                window.Hls = class {
+                    static isSupported() { return true; }
+                    constructor() {
+                        this.url = null;
+                        this.destroyed = false;
+                        window.hlsInstances.push(this);
+                    }
+                    loadSource(url) { this.url = url; }
+                    attachMedia(media) { this.media = media; }
+                    on(event, callback) {
+                        if (event === 'hlsManifestParsed') {
+                            this.manifestParsedCallback = callback;
+                        } else if (event === 'hlsError') {
+                            this.errorCallback = callback;
+                        }
+                    }
+                    destroy() { this.destroyed = true; }
+                };
+                window.Hls.Events = {
+                    MANIFEST_PARSED: 'hlsManifestParsed',
+                    ERROR: 'hlsError'
+                };
+            ''')
+
+            # Block ALL external requests
+            def block_external(route):
+                url = route.request.url
+                if "localhost" in url:
+                    route.continue_()
+                else:
+                    route.abort()
+            page.route("**/*", block_external)
+
+            page.goto("http://localhost:8000", wait_until="commit")
+            page.wait_for_selector(".play-overlay", state="attached")
+
+            # Click the first overlay
+            page.dispatch_event(".play-overlay", "click")
+
+            # Wait for overlay to become hidden after click
+            page.wait_for_function("document.querySelector('.play-overlay').hasAttribute('hidden')")
+
+            # Emulate HLS Non-Fatal Error and check overlay
+            result = page.evaluate('''
+                () => {
+                    const inst = window.hlsInstances[0];
+                    if (inst && inst.errorCallback) {
+                        // Call the error callback with a non-fatal error
+                        inst.errorCallback('hlsError', { fatal: false });
+
+                        // Check if overlay is shown
+                        const overlay = document.querySelector('.play-overlay');
+                        const isHidden = overlay.hasAttribute('hidden');
+
+                        return {
+                            overlayHidden: isHidden,
+                            hlsDestroyed: inst.destroyed
+                        };
+                    }
+                    return null;
+                }
+            ''')
+
+            self.assertIsNotNone(result)
+            self.assertTrue(result['overlayHidden'], "Overlay should remain hidden after non-fatal error")
+            self.assertFalse(result['hlsDestroyed'], "Hls instance should not be destroyed after non-fatal error")
+
+            browser.close()
+
 if __name__ == "__main__":
     unittest.main()
