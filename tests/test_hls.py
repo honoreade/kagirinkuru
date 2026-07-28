@@ -30,6 +30,15 @@ class TestHLSSupport(unittest.TestCase):
         cls.server_process.terminate()
         cls.server_process.wait()
 
+    @staticmethod
+    def block_external(route):
+        """Block ALL external requests to prevent timeouts caused by slow external assets."""
+        url = route.request.url
+        if "localhost" in url:
+            route.continue_()
+        else:
+            route.abort()
+
     def test_hls_not_supported_fallback(self):
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
@@ -44,13 +53,7 @@ class TestHLSSupport(unittest.TestCase):
             ''')
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
-            page.route("**/*", block_external)
+            page.route("**/*", self.block_external)
 
             # Navigate to the page
             page.goto("http://localhost:8000", wait_until="commit")
@@ -147,13 +150,7 @@ class TestHLSSupport(unittest.TestCase):
             ''')
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
-            page.route("**/*", block_external)
+            page.route("**/*", self.block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
             page.wait_for_selector(".play-overlay", state="attached")
@@ -192,13 +189,8 @@ class TestHLSSupport(unittest.TestCase):
                 };
             ''')
 
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
-            page.route("**/*", block_external)
+            # Block ALL external requests
+            page.route("**/*", self.block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
             page.wait_for_selector(".play-overlay", state="attached")
@@ -273,13 +265,7 @@ class TestHLSSupport(unittest.TestCase):
             ''')
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
-            page.route("**/*", block_external)
+            page.route("**/*", self.block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
             page.wait_for_selector(".play-overlay", state="attached")
