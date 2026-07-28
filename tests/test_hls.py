@@ -4,6 +4,13 @@ import time
 import unittest
 from playwright.sync_api import sync_playwright
 
+def block_external(route):
+    url = route.request.url
+    if "localhost" in url:
+        route.continue_()
+    else:
+        route.abort()
+
 class TestHLSSupport(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -44,12 +51,6 @@ class TestHLSSupport(unittest.TestCase):
             ''')
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
             page.route("**/*", block_external)
 
             # Navigate to the page
@@ -147,12 +148,6 @@ class TestHLSSupport(unittest.TestCase):
             ''')
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
             page.route("**/*", block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
@@ -192,12 +187,6 @@ class TestHLSSupport(unittest.TestCase):
                 };
             ''')
 
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
             page.route("**/*", block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
@@ -273,12 +262,6 @@ class TestHLSSupport(unittest.TestCase):
             ''')
 
             # Block ALL external requests
-            def block_external(route):
-                url = route.request.url
-                if "localhost" in url:
-                    route.continue_()
-                else:
-                    route.abort()
             page.route("**/*", block_external)
 
             page.goto("http://localhost:8000", wait_until="commit")
