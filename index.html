@@ -59,7 +59,7 @@
                 <!-- TV Garden -->
                 <div class="channel-card">
                     <h3>TV Garden</h3>
-                    <iframe title="TV Garden Player" src="https://tv.garden/rw" width="100%" height="225"
+                    <iframe id="tv-garden-iframe" title="TV Garden Player" src="https://tv.garden/rw" width="100%" height="225"
                         style="border: 0;" sandbox="allow-scripts allow-same-origin" allowfullscreen loading="lazy"></iframe>
                 </div>
             </div>
@@ -71,7 +71,7 @@
                 <!-- B&B FM -->
                 <div class="audio-container">
                     <h3>B&B FM</h3>
-                    <iframe title="B&B FM TuneIn Player" src="https://tunein.com/embed/player/s281307/"
+                    <iframe id="bb-fm-iframe" title="B&B FM TuneIn Player" src="https://tunein.com/embed/player/s281307/"
                         style="width:100%; height:100px; border: 0; overflow: hidden;" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe>
                 </div>
             </div>
@@ -82,11 +82,21 @@
             <div class="media-grid">
                 <div class="audio-container">
                     <h3>Radio Rwanda</h3>
-                    <audio controls preload="none" src="https://listen.rba.co.rw:8008/rwanda" type="audio/mpeg"></audio>
+                    <div class="audio-wrapper">
+                        <audio id="radio-rwanda" controls preload="none" type="audio/mpeg"></audio>
+                        <div class="play-overlay" id="radio-rwanda-overlay">
+                            <span class="play-button"></span>
+                        </div>
+                    </div>
                 </div>
                 <div class="audio-container">
                     <h3>Magic FM</h3>
-                    <audio controls preload="none" src="https://listen.rba.co.rw:8085/mgcfm" type="audio/mpeg"></audio>
+                    <div class="audio-wrapper">
+                        <audio id="magic-fm" controls preload="none" type="audio/mpeg"></audio>
+                        <div class="play-overlay" id="magic-fm-overlay">
+                            <span class="play-button"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
