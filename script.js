@@ -1,4 +1,30 @@
-
+function setupHlsStream(video, hlsUrl, onFatalError, onHlsReady) {
+  let hlsInstance = null;
+  if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+    hlsInstance = new Hls();
+    if (typeof onHlsReady === 'function') {
+      onHlsReady(hlsInstance);
+    }
+    hlsInstance.loadSource(hlsUrl);
+    hlsInstance.attachMedia(video);
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function () {
+      video.play();
+    });
+    hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+      if (data.fatal) {
+        onFatalError(hlsInstance);
+      }
+    });
+    return true;
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = hlsUrl;
+    video.addEventListener('loadedmetadata', function () {
+      video.play();
+    });
+    return true;
+  }
+  return false;
+}
 
 // Global orchestrator to manage media playback and stop inactive players
 const mediaStopRegistry = {};
@@ -19,7 +45,6 @@ function setupHlsPlayerOverlay(videoId, overlayId, hlsUrl) {
   const video = document.getElementById(videoId);
   const overlay = document.getElementById(overlayId);
   let hlsLoaded = false;
-  let hlsInstance = null;
 
   function showOverlay() {
     overlay.removeAttribute('hidden');
@@ -29,6 +54,19 @@ function setupHlsPlayerOverlay(videoId, overlayId, hlsUrl) {
   }
   function hideOverlay() {
     overlay.setAttribute('hidden', '');
+  }
+
+  let hlsInstance = null;
+
+  function handleFatalError(failedInstance) {
+    showOverlay();
+    if (failedInstance) {
+      failedInstance.destroy();
+      if (failedInstance === hlsInstance) {
+        hlsInstance = null;
+      }
+    }
+    hlsLoaded = false;
   }
 
   function stopStream() {
@@ -49,41 +87,30 @@ function setupHlsPlayerOverlay(videoId, overlayId, hlsUrl) {
     // Stop other active media before starting this one
     stopAllMedia(videoId);
 
-    if (!hlsLoaded && typeof Hls !== 'undefined' && Hls.isSupported()) {
-      hlsInstance = new Hls();
-      hlsInstance.loadSource(hlsUrl);
-      hlsInstance.attachMedia(video);
-      hlsInstance.on(Hls.Events.MANIFEST_PARSED, function () {
+    if (!hlsLoaded) {
+      hlsLoaded = setupHlsStream(video, hlsUrl, handleFatalError, function (instance) {
+        hlsInstance = instance;
+      });
+      if (!hlsLoaded) {
+        // Fallback for browsers that do not support HLS
+        video.src = hlsUrl;
         video.play();
-      });
-      hlsInstance.on(Hls.Events.ERROR, function (event, data) {
-        if (data.fatal) {
-          showOverlay();
-          hlsInstance.destroy();
-          hlsLoaded = false;
-        }
-      });
-      hlsLoaded = true;
-    } else if (!hlsLoaded && video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = hlsUrl;
-      video.addEventListener('loadedmetadata', function () {
-        video.play();
-      });
-      hlsLoaded = true;
+      }
     } else {
-      video.src = hlsUrl;
       video.play();
     }
     hideOverlay();
   }
 
-  overlay.addEventListener('click', startStream);
-  video.addEventListener('play', hideOverlay);
-  video.addEventListener('pause', function() {
+  function handlePause() {
     if (video.currentTime === 0 || video.ended) {
       showOverlay();
     }
-  });
+  }
+
+  overlay.addEventListener('click', startStream);
+  video.addEventListener('play', hideOverlay);
+  video.addEventListener('pause', handlePause);
 
   // Show overlay on load
   showOverlay();
