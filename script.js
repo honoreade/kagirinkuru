@@ -92,25 +92,52 @@ function setupHlsPlayerOverlay(videoId, overlayId, hlsUrl) {
 setupHlsPlayerOverlay('rtv-video', 'rtv-overlay', 'https://5c46fa289c89f.streamlock.net:443/rtv25/rtv/playlist.m3u8');
 setupHlsPlayerOverlay('kc2-video', 'kc2-overlay', 'https://5c46fa289c89f.streamlock.net:443/kc2/kc2/playlist.m3u8');
 
-// Register Audio Elements
-['radio-rwanda', 'magic-fm'].forEach(audioId => {
-  const audioElement = document.getElementById(audioId);
-  if (audioElement) {
-    // For native audio elements, we can't remove the src because it disables the native play button.
-    // To completely stop buffering, we can pause and set the src to an empty string, then restore it on a custom interaction.
-    // However, since we rely on the native controls and there's no custom overlay, the best we can safely do is just pause it.
-    // If strict data saving is required for native controls, we'd need a custom UI overlay like the video players.
-    // For now, pausing is the standard and safest approach for native audio controls.
-    registerMedia(audioId, () => {
-      audioElement.pause();
-    });
+function setupAudioPlayerOverlay(audioId, overlayId, audioUrl) {
+  const audio = document.getElementById(audioId);
+  const overlay = document.getElementById(overlayId);
 
-    // When this audio starts playing, stop all other media
-    audioElement.addEventListener('play', () => {
-      stopAllMedia(audioId);
-    });
+  if (!audio || !overlay) return;
+
+  function showOverlay() {
+    overlay.removeAttribute('hidden');
+    audio.removeAttribute('src'); // Strictly stop data buffering
+    audio.load();
   }
-});
+
+  function hideOverlay() {
+    overlay.setAttribute('hidden', '');
+  }
+
+  function stopAudioStream() {
+    showOverlay();
+  }
+
+  // Register with orchestrator
+  registerMedia(audioId, stopAudioStream);
+
+  function startAudioStream() {
+    stopAllMedia(audioId);
+    audio.src = audioUrl;
+    audio.play();
+    hideOverlay();
+  }
+
+  overlay.addEventListener('click', startAudioStream);
+
+  // If the user clicks pause on the native controls, we intercept it and reset
+  audio.addEventListener('pause', function() {
+    // Only show overlay if we actually have a source (prevents loops on load)
+    if (audio.hasAttribute('src')) {
+      showOverlay();
+    }
+  });
+
+  // Init state
+  showOverlay();
+}
+
+setupAudioPlayerOverlay('radio-rwanda', 'radio-rwanda-overlay', 'https://listen.rba.co.rw:8008/rwanda');
+setupAudioPlayerOverlay('magic-fm', 'magic-fm-overlay', 'https://listen.rba.co.rw:8085/mgcfm');
 
 // Detect interactions with iframes (since we can't detect 'play' directly inside them)
 window.addEventListener('blur', () => {

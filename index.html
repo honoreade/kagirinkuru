@@ -82,11 +82,21 @@
             <div class="media-grid">
                 <div class="audio-container">
                     <h3>Radio Rwanda</h3>
-                    <audio id="radio-rwanda" controls preload="none" src="https://listen.rba.co.rw:8008/rwanda" type="audio/mpeg"></audio>
+                    <div class="audio-wrapper">
+                        <audio id="radio-rwanda" controls preload="none" type="audio/mpeg"></audio>
+                        <div class="play-overlay" id="radio-rwanda-overlay">
+                            <span class="play-button"></span>
+                        </div>
+                    </div>
                 </div>
                 <div class="audio-container">
                     <h3>Magic FM</h3>
-                    <audio id="magic-fm" controls preload="none" src="https://listen.rba.co.rw:8085/mgcfm" type="audio/mpeg"></audio>
+                    <div class="audio-wrapper">
+                        <audio id="magic-fm" controls preload="none" type="audio/mpeg"></audio>
+                        <div class="play-overlay" id="magic-fm-overlay">
+                            <span class="play-button"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
