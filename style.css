@@ -161,6 +161,10 @@ iframe {
     flex-direction: column;
 }
 
+.channel-card--tv-garden {
+    grid-column: 1 / -1;
+}
+
 .channel-card h3 {
     text-align: left;
     margin-bottom: 1rem;
@@ -322,6 +326,17 @@ video {
     margin-left: 4px;
 }
 
+iframe {
+    display: block;
+    width: 100%;
+}
+
+.tv-garden-embed {
+    height: min(70vh, 640px);
+    min-height: 460px;
+    border-radius: 12px;
+}
+
 .media-ready .media-skeleton {
     opacity: 0;
     visibility: hidden;
@@ -391,6 +406,11 @@ video {
 
     .video-wrapper {
         min-width: 100%;
+    }
+
+    .tv-garden-embed {
+        height: 60vh;
+        min-height: 420px;
     }
 }
 
